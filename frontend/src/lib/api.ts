@@ -7,6 +7,7 @@ const API_BASE_URL =
 export type ScoreRequest = {
   question: string;
   context?: string;
+  locale?: "ko" | "en";
 };
 
 export async function scoreQuestion(payload: ScoreRequest): Promise<ScoreResponse> {
@@ -20,7 +21,7 @@ export async function scoreQuestion(payload: ScoreRequest): Promise<ScoreRespons
 
   if (!response.ok) {
     const message = await response.text();
-    throw new Error(message || "질문 점수를 계산하지 못했습니다.");
+    throw new Error(message || "Could not score the question.");
   }
 
   return (await response.json()) as ScoreResponse;

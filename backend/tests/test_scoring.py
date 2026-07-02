@@ -47,3 +47,15 @@ def test_score_endpoint_returns_contract() -> None:
         "summary",
         "locked_improvement_preview",
     }
+
+
+def test_mock_scoring_respects_locale() -> None:
+    request = {
+        "question": "Summarize churn reduction ideas in a table.",
+        "context": "Audience is an early-stage SaaS founder.",
+        "locale": "en",
+    }
+
+    response = score_question(ScoreRequest(**request), Settings(scoring_mode="mock"))
+
+    assert "Pro will rewrite" in response.locked_improvement_preview

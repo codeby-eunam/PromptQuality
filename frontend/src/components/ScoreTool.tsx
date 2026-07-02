@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ScoreResponse, Signal } from "@promptquality/shared";
-import { signalLabels } from "@promptquality/shared";
 import { scoreQuestion } from "@/lib/api";
+import { type Locale, messages, normalizeLocale } from "@/lib/i18n";
 
 const signalStyles: Record<Signal, string> = {
   green: "bg-leaf text-white ring-leaf/20",
@@ -17,19 +17,21 @@ const lightStyles: Record<Signal, string> = {
   red: "bg-clay shadow-[0_0_28px_rgba(180,72,61,0.38)]"
 };
 
-const metricLabels = {
-  specificity: "구체성",
-  context: "맥락",
-  output_format: "출력 형식"
-} as const;
-
 export function ScoreTool() {
+  const [locale, setLocale] = useState<Locale>("en");
   const [question, setQuestion] = useState("");
   const [context, setContext] = useState("");
   const [result, setResult] = useState<ScoreResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    const nextLocale = normalizeLocale(navigator.language);
+    setLocale(nextLocale);
+    document.documentElement.lang = nextLocale;
+  }, []);
+
+  const t = messages[locale];
   const canSubmit = question.trim().length >= 5 && !isLoading;
 
   const sharePath = useMemo(() => {
@@ -47,15 +49,12 @@ export function ScoreTool() {
     try {
       const response = await scoreQuestion({
         question: question.trim(),
-        context: context.trim() || undefined
+        context: context.trim() || undefined,
+        locale
       });
       setResult(response);
     } catch (caught) {
-      setError(
-        caught instanceof Error
-          ? caught.message
-          : "잠시 후 다시 시도해 주세요."
-      );
+      setError(caught instanceof Error ? caught.message : t.fallbackError);
     } finally {
       setIsLoading(false);
     }
@@ -67,39 +66,39 @@ export function ScoreTool() {
         <section className="rounded-lg border border-line bg-white p-4 shadow-sm sm:p-6">
           <div className="mb-5 flex flex-col gap-2 border-b border-line pb-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <p className="text-sm font-semibold text-leaf">PromptQuality</p>
+              <p className="text-sm font-semibold text-leaf">{t.appName}</p>
               <h1 className="mt-1 text-2xl font-semibold tracking-normal text-ink sm:text-3xl">
-                질문 품질 점검
+                {t.title}
               </h1>
             </div>
             <p className="max-w-sm text-sm leading-6 text-ink/65">
-              질문을 입력하면 총점, 신호등, 3개 지표를 바로 확인합니다.
+              {t.subtitle}
             </p>
           </div>
 
           <form onSubmit={onSubmit} className="space-y-4">
             <label className="block">
               <span className="mb-2 block text-sm font-semibold text-ink">
-                질문
+                {t.questionLabel}
               </span>
               <textarea
                 value={question}
                 onChange={(event) => setQuestion(event.target.value)}
                 className="min-h-56 w-full resize-y rounded-md border border-line bg-panel p-4 text-base leading-7 outline-none transition focus:border-leaf focus:ring-4 focus:ring-leaf/10"
-                placeholder="예: 우리 B2B SaaS의 무료 체험 전환율을 높이기 위한 온보딩 개선안을 표로 정리해줘."
+                placeholder={t.questionPlaceholder}
               />
             </label>
 
             <label className="block">
               <span className="mb-2 block text-sm font-semibold text-ink">
-                추가 맥락
-                <span className="ml-2 font-normal text-ink/50">선택</span>
+                {t.contextLabel}
+                <span className="ml-2 font-normal text-ink/50">{t.optional}</span>
               </span>
               <textarea
                 value={context}
                 onChange={(event) => setContext(event.target.value)}
                 className="min-h-24 w-full resize-y rounded-md border border-line bg-white p-3 text-sm leading-6 outline-none transition focus:border-leaf focus:ring-4 focus:ring-leaf/10"
-                placeholder="목표, 대상 사용자, 제약조건, 원하는 톤 등을 적어도 좋습니다."
+                placeholder={t.contextPlaceholder}
               />
             </label>
 
@@ -114,18 +113,18 @@ export function ScoreTool() {
               disabled={!canSubmit}
               className="w-full rounded-md bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-ink/90 disabled:cursor-not-allowed disabled:bg-ink/35 sm:w-auto"
             >
-              {isLoading ? "점수 계산 중..." : "질문 점수 확인하기"}
+              {isLoading ? t.submitLoading : t.submitIdle}
             </button>
           </form>
         </section>
 
         <aside className="space-y-5">
           <div className="rounded-lg border border-dashed border-line bg-white p-5 text-center text-sm text-ink/55">
-            광고 슬롯
-            <div className="mt-2 text-xs text-ink/40">MVP 배너 영역</div>
+            {t.adSlot}
+            <div className="mt-2 text-xs text-ink/40">{t.adSlotHint}</div>
           </div>
 
-          <ResultCard result={result} sharePath={sharePath} />
+          <ResultCard result={result} sharePath={sharePath} locale={locale} />
         </aside>
       </div>
     </main>
@@ -134,18 +133,20 @@ export function ScoreTool() {
 
 function ResultCard({
   result,
-  sharePath
+  sharePath,
+  locale
 }: {
   result: ScoreResponse | null;
   sharePath: string | null;
+  locale: Locale;
 }) {
+  const t = messages[locale];
+
   if (!result) {
     return (
       <section className="rounded-lg border border-line bg-white p-5 shadow-sm">
-        <div className="text-sm font-semibold text-ink">결과</div>
-        <p className="mt-3 text-sm leading-6 text-ink/60">
-          질문을 제출하면 이곳에 신호등과 세부 점수가 표시됩니다.
-        </p>
+        <div className="text-sm font-semibold text-ink">{t.result}</div>
+        <p className="mt-3 text-sm leading-6 text-ink/60">{t.emptyResult}</p>
       </section>
     );
   }
@@ -154,11 +155,11 @@ function ResultCard({
     <section className="rounded-lg border border-line bg-white p-5 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <div className="text-sm font-semibold text-ink">결과</div>
+          <div className="text-sm font-semibold text-ink">{t.result}</div>
           <div
             className={`mt-3 inline-flex rounded-full px-3 py-1 text-xs font-bold ring-4 ${signalStyles[result.signal]}`}
           >
-            {signalLabels[result.signal]}
+            {t.signals[result.signal]}
           </div>
         </div>
         <TrafficLight active={result.signal} />
@@ -172,8 +173,9 @@ function ResultCard({
       </div>
 
       <div className="mt-5 space-y-3">
-        {Object.entries(metricLabels).map(([key, label]) => {
-          const score = result.scores[key as keyof typeof metricLabels];
+        {Object.entries(t.metrics).map(([key, label]) => {
+          const metricKey = key as keyof typeof t.metrics;
+          const score = result.scores[metricKey];
           return <MetricBar key={key} label={label} score={score} />;
         })}
       </div>
@@ -184,7 +186,7 @@ function ResultCard({
 
       <div className="mt-4 rounded-md border border-line bg-white p-4">
         <div className="text-xs font-semibold uppercase text-ink/45">
-          공유 페이지
+          {t.sharePage}
         </div>
         <div className="mt-1 break-all text-sm text-ink/70">
           {sharePath ?? "/share/:id"}
@@ -196,7 +198,7 @@ function ResultCard({
         className="mt-4 w-full rounded-md border border-ink/15 bg-ink/5 px-4 py-3 text-sm font-semibold text-ink"
         aria-disabled="true"
       >
-        이 질문을 85점 이상으로 개선하기 - Pro 잠금
+        {t.proCta}
       </button>
       <p className="mt-2 text-xs leading-5 text-ink/50">
         {result.locked_improvement_preview}

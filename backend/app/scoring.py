@@ -59,6 +59,36 @@ CONTEXT_WORDS = (
     "tone",
 )
 
+SUMMARY_BY_LOCALE = {
+    "ko": {
+        "specificity": "요청은 이해되지만 작업 범위와 성공 기준을 더 구체화하면 좋아요.",
+        "context": "목표, 대상, 제약조건 같은 맥락을 추가하면 답변 품질이 올라갑니다.",
+        "output_format": "원하는 답변 형식이나 예시를 지정하면 결과를 더 통제할 수 있어요.",
+    },
+    "en": {
+        "specificity": (
+            "The request is understandable, but the scope and success criteria need more detail."
+        ),
+        "context": (
+            "Add goals, audience, constraints, or background so the answer can be more useful."
+        ),
+        "output_format": (
+            "Specify the desired format or include an example to make the output easier to control."
+        ),
+    },
+}
+
+LOCKED_PREVIEW_BY_LOCALE = {
+    "ko": (
+        "Pro에서는 부족한 지표를 기준으로 질문을 다시 작성하고, "
+        "85점 이상을 목표로 개선안을 제공합니다."
+    ),
+    "en": (
+        "Pro will rewrite the question around the weakest metrics and aim for an improved "
+        "85+ point version."
+    ),
+}
+
 
 def signal_from_score(score: int) -> Signal:
     if score >= 80:
@@ -101,19 +131,16 @@ def score_with_rules(request: ScoreRequest) -> ModelScorePayload:
         "output_format": clamp(output_format),
     }
     weakest = min(scores, key=lambda key: scores[key])
-    summary_by_weakness = {
-        "specificity": "요청은 이해되지만 작업 범위와 성공 기준을 더 구체화하면 좋아요.",
-        "context": "목표, 대상, 제약조건 같은 맥락을 추가하면 답변 품질이 올라갑니다.",
-        "output_format": "원하는 답변 형식이나 예시를 지정하면 결과를 더 통제할 수 있어요.",
-    }
-    return ModelScorePayload(**scores, summary=summary_by_weakness[weakest])
+    summary = SUMMARY_BY_LOCALE[request.locale][weakest]
+    return ModelScorePayload(**scores, summary=summary)
 
 
 def build_prompt(request: ScoreRequest) -> str:
+    summary_language = "Korean" if request.locale == "ko" else "English"
     return (
         "Evaluate the quality of this user question for getting useful AI output. "
         "Return only JSON with integer fields specificity, context, output_format "
-        "from 0 to 100 and a short Korean summary under 180 characters.\n\n"
+        f"from 0 to 100 and a short {summary_language} summary under 180 characters.\n\n"
         f"Question:\n{request.question}\n\n"
         f"Additional context:\n{request.context or ''}"
     )
@@ -167,8 +194,5 @@ def score_question(request: ScoreRequest, settings: Settings) -> ScoreResponse:
         signal=signal_from_score(total),
         scores=scores,
         summary=model_score.summary,
-        locked_improvement_preview=(
-            "Pro에서는 부족한 지표를 기준으로 질문을 다시 작성하고, "
-            "85점 이상을 목표로 개선안을 제공합니다."
-        ),
+        locked_improvement_preview=LOCKED_PREVIEW_BY_LOCALE[request.locale],
     )

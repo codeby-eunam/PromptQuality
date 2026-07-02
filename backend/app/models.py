@@ -3,11 +3,13 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 Signal = Literal["green", "yellow", "red"]
+Locale = Literal["ko", "en"]
 
 
 class ScoreRequest(BaseModel):
     question: str = Field(..., min_length=5, max_length=8000)
     context: str | None = Field(default=None, max_length=8000)
+    locale: Locale = "en"
 
 
 class ScoreBreakdown(BaseModel):

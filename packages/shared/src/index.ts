@@ -16,9 +16,9 @@ export type ScoreResponse = {
 };
 
 export const signalLabels: Record<Signal, string> = {
-  green: "좋음",
-  yellow: "보완 필요",
-  red: "위험",
+  green: "Good",
+  yellow: "Needs work",
+  red: "Risky"
 };
 
 export function signalFromScore(score: number): Signal {
